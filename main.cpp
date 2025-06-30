@@ -1,6 +1,8 @@
 #include <filesystem>
 #include <iostream>
 #include <string_view>
+#include <vector>
+#include <thread>
 
 #include "tinyxml2.h"
 
@@ -20,10 +22,86 @@ namespace fs = std::filesystem;
  *
  */
 
-enum class SearchingStates {
-    SearchingLeaves,
-    SearchingLeaves,
-};
+//TODO: this can return an expected.
+tinyxml2::XMLElement* searchDF(tinyxml2::XMLElement* element, std::string_view find_el_name, int num_occurrence) {
+    using namespace tinyxml2;
+
+    XMLElement* ret {};
+    int count {};
+    std::vector<XMLElement*> frontier;
+    frontier.push_back(element);
+
+    while(frontier.size() != 0) {
+        element = frontier.back();
+        frontier.pop_back();
+        if (element->Name() == find_el_name) {
+            ++count;
+            if (count == num_occurrence) {
+                ret = element;
+                break;
+            }
+        }
+
+        if (element->LastChildElement()) {
+            element = element->LastChildElement();
+            frontier.push_back(element);
+            while(element->PreviousSiblingElement()) {
+                element = element->PreviousSiblingElement();
+                frontier.push_back(element);
+            }
+        }
+    }
+
+    return element;
+}
+
+tinyxml2::XMLElement* searchDFRecursive(tinyxml2::XMLElement* element, std::string_view find_el_name, int& num_occurrence) {
+    using namespace tinyxml2;
+
+    if (!element) {
+        return nullptr;
+    }
+
+    if (element->Name() == find_el_name) {
+        --num_occurrence;
+        if (num_occurrence == 0) {
+            return element;
+        }
+    }
+
+    if (element->FirstChildElement()) {
+        auto ret = searchDFRecursive(element->FirstChildElement(), find_el_name, num_occurrence); 
+        if (ret) {
+            return ret;
+        }
+    }
+
+    if (element->NextSiblingElement()) {
+        auto ret = searchDFRecursive(element->NextSiblingElement(), find_el_name, num_occurrence); 
+        if (ret) {
+            return ret;
+        }
+    }
+
+    return nullptr;
+}
+
+tinyxml2::XMLElement* findTarget(tinyxml2::XMLElement* element, std::string_view search_target_name) {
+    constexpr std::string_view target_element_name {"Target"};
+    tinyxml2::XMLElement* target_el {searchDF(element, target_element_name, 1)};
+
+    while(target_el) {
+        std::string_view target_name {target_el->FirstChildElement("TargetName")->FirstChild()->Value()};
+        std::cout << target_name << std::endl;
+        if (target_name == search_target_name) {
+            std::cout << "Found" << std::endl;
+            break;
+        }
+        target_el = target_el->NextSiblingElement();
+    }
+
+    return target_el;
+}
 
 int main() {
     using namespace tinyxml2;
@@ -37,36 +115,72 @@ int main() {
     //TODO: check for error on loadFile()
     doc.LoadFile(keil_project_file_abs.string().c_str());
 
-    const XMLElement* root_element = doc.RootElement();
-    std::cout << root_element->Name() << std::endl;
-    std::cout << "Num elements: " << root_element->ChildElementCount() << std::endl;
-
     bool found {false};
-    const XMLElement* element = root_element;
-    const XMLElement* moving_element = root_element;
-    constexpr std::string_view element_to_find { "VariousControls" };
+    XMLElement* root = doc.RootElement();
+    const char* include_path_value {};
+    const char* defines_value {};
 
-    while(!found) {
-        switch (state) {
-            case SearchingLeaves:
-                if (element->Name() != element_to_find) {
-                    if (element->FirstChildElement()) {
-                        element = element->FirstChildElement();
-                    }
-                    else if (element->NextSibling()) {
-                        element = element->NextSibling();
-                    } else {
-                        element = element->Parent();
-                        if (element->NextSibling()) {
-                            element = element->NextSibling();
-                        }
-                    }
-                } else {
-                    found = true;
-                    std::cout << "I have found it!" << std::endl;
-                }
-            break;
+    int count {1};
+    XMLElement* el {};
+    do {
+        int occ_needed = count;
+        el = searchDFRecursive(root, "VariousControls" , occ_needed);
+        if (el) {
+            el = el->FirstChildElement("IncludePath");
+            if (!el->NoChildren()) {
+                std::cout << el->FirstChild()->Value() << std::endl;
+                std::cout << count << std::endl;
+            }
         }
-    }
+        ++count;
+    } while(el);
+
+//    constexpr std::string_view target_name {"SLS_release_enhanced"};
+//    XMLElement* target_element = findTarget(root, target_name);
+//    if(!target_element) {
+//        std::cout << "The target was not found!" << std::endl;
+//        return 1;
+//    }
+//
+//    const char* include_path_string {};
+//    int occ {1};
+//    while(true) {
+//        XMLElement* element = searchDF(target_element, "IncludePath", occ);
+//        if (element) {
+//            if (!element->NoChildren()) {
+//                include_path_string = element->FirstChild()->Value();
+//                break;
+//            }
+//        } else {
+//            std::cout << "The element: IncludePath does not exist" << std::endl;
+//            return 2;
+//        }
+//        ++occ;
+//    }
+//    std::cout << "The include path string for the target is: " << include_path_string << std::endl;
+//
+//    const char* defines_string {};
+//    occ = {1};
+//    while(true) {
+//        XMLElement* element = searchDF(target_element, "Define", occ);
+//        if (element) {
+//            if (!element->NoChildren()) {
+//                defines_string = element->FirstChild()->Value();
+//                break;
+//            }
+//        } else {
+//            std::cout << "The element: Define does not exist" << std::endl;
+//            return 3;
+//        }
+//        ++occ;
+//    }
+//    std::cout << "The defines string for the target is: " << defines_string << std::endl;
+
+    //TODO: find the list of files for the target specified.
+    //Files are distribute in the following way:
+    //  * Groups (element) contains all the files.
+    //  * Each Group represents a directory inside the keil project (e.g., sources, lib_hal, etc).
+    //  * Each Group has inside a Files tag.
+    //  * The Files has a File entry for each file of the group, for which the name has to be taken.
 }
 

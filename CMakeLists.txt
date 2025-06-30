@@ -6,4 +6,5 @@ project("Compile commands keil converter"
 add_subdirectory(tinyxml2)
 
 add_executable(converter main.cpp)
+target_compile_options(converter PRIVATE -g)
 target_link_libraries(converter PRIVATE tinyxml2)
