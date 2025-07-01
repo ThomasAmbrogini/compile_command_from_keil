@@ -52,7 +52,7 @@ tinyxml2::XMLElement* searchDF(tinyxml2::XMLElement* element, std::string_view f
         }
     }
 
-    return element;
+    return ret;
 }
 
 tinyxml2::XMLElement* searchDFRecursive(tinyxml2::XMLElement* element, std::string_view find_el_name, int& num_occurrence) {
@@ -120,67 +120,72 @@ int main() {
     const char* include_path_value {};
     const char* defines_value {};
 
-    int count {1};
-    XMLElement* el {};
-    do {
-        int occ_needed = count;
-        el = searchDFRecursive(root, "VariousControls" , occ_needed);
-        if (el) {
-            el = el->FirstChildElement("IncludePath");
-            if (!el->NoChildren()) {
-                std::cout << el->FirstChild()->Value() << std::endl;
-                std::cout << count << std::endl;
+    constexpr std::string_view target_name {"SLS_release_enhanced"};
+    XMLElement* target_element = findTarget(root, target_name);
+    if(!target_element) {
+        std::cout << "The target was not found!" << std::endl;
+        return 1;
+    }
+
+    const char* include_path_string {};
+    int occ {1};
+    while(true) {
+        XMLElement* element = searchDF(target_element, "IncludePath", occ);
+        if (element) {
+            if (!element->NoChildren()) {
+                include_path_string = element->FirstChild()->Value();
+                break;
             }
+        } else {
+            std::cout << "The element: IncludePath does not exist" << std::endl;
+            return 2;
         }
+        ++occ;
+    }
+    std::cout << "The include path string for the target is: " << include_path_string << std::endl;
+
+    const char* defines_string {};
+    occ = {1};
+    while(true) {
+        XMLElement* element = searchDF(target_element, "Define", occ);
+        if (element) {
+            if (!element->NoChildren()) {
+                defines_string = element->FirstChild()->Value();
+                break;
+            }
+        } else {
+            std::cout << "The element: Define does not exist" << std::endl;
+            return 3;
+        }
+        ++occ;
+    }
+    std::cout << "The defines string for the target is: " << defines_string << std::endl;
+
+
+    //TODO: now we have to take all the files.
+    //I can just take all the filename element under the target tag.
+    constexpr std::string_view filepath_tag {"FilePath"};
+    int count {1};
+    const XMLElement* filepath_element {};
+    std::vector<const char*> filepaths {};
+
+    do {
+        filepath_element = searchDF(target_element, filepath_tag, count);
         ++count;
-    } while(el);
+        if (filepath_element) {
+            const char* filepath = filepath_element->FirstChild()->Value();
+            filepaths.push_back(filepath);
+        }
+    } while (filepath_element);
 
-//    constexpr std::string_view target_name {"SLS_release_enhanced"};
-//    XMLElement* target_element = findTarget(root, target_name);
-//    if(!target_element) {
-//        std::cout << "The target was not found!" << std::endl;
-//        return 1;
-//    }
-//
-//    const char* include_path_string {};
-//    int occ {1};
-//    while(true) {
-//        XMLElement* element = searchDF(target_element, "IncludePath", occ);
-//        if (element) {
-//            if (!element->NoChildren()) {
-//                include_path_string = element->FirstChild()->Value();
-//                break;
-//            }
-//        } else {
-//            std::cout << "The element: IncludePath does not exist" << std::endl;
-//            return 2;
-//        }
-//        ++occ;
-//    }
-//    std::cout << "The include path string for the target is: " << include_path_string << std::endl;
-//
-//    const char* defines_string {};
-//    occ = {1};
-//    while(true) {
-//        XMLElement* element = searchDF(target_element, "Define", occ);
-//        if (element) {
-//            if (!element->NoChildren()) {
-//                defines_string = element->FirstChild()->Value();
-//                break;
-//            }
-//        } else {
-//            std::cout << "The element: Define does not exist" << std::endl;
-//            return 3;
-//        }
-//        ++occ;
-//    }
-//    std::cout << "The defines string for the target is: " << defines_string << std::endl;
 
-    //TODO: find the list of files for the target specified.
-    //Files are distribute in the following way:
-    //  * Groups (element) contains all the files.
-    //  * Each Group represents a directory inside the keil project (e.g., sources, lib_hal, etc).
-    //  * Each Group has inside a Files tag.
-    //  * The Files has a File entry for each file of the group, for which the name has to be taken.
+    for (auto filepath : filepaths) {
+        std::cout << filepath << std::endl;
+    }
+
+    //TODO: i could also pass the directory value on the command line.
+    fs::path current_dir { "." };
+    fs::path current_dir_abs {fs::absolute(current_dir).string()};
+    std::cout << current_dir_abs << std::endl;
 }
 
