@@ -1,26 +1,16 @@
 #include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <ranges>
+#include <regex>
 #include <string_view>
-#include <vector>
 #include <thread>
+#include <vector>
 
 #include "tinyxml2.h"
+#include <nlohmann/json.hpp>
 
 namespace fs = std::filesystem;
-
-/*
- *
- *
- *         //TODO: do i only need these?
- *           <VariousControls>
- *             <MiscControls>--info=stack</MiscControls>
- *             <Define>NDEBUG, __SAME70Q21__,CMSIS, SLS_NO_FS, SLS_NO_FS1, FIT_VERSION, SLS_SYSCTL, SLS_PRINTF=1, TRACE_LEVEL=TRACE_LEVEL_ERROR, __SLS_CUSTOM_GMAC_DRIVER__, SLS_PLATFORM_ENHANCED</Define>
- *             <Undefine></Undefine>
- *             <IncludePath>.\;.\PrecompiledHeaders;..\..\sources\headers;..\..\..\SLS_Common\sources\headers;..\..\sources\Dolmen\common_sources;..\..\sources\Dolmen\common_sources\Support;..\..\sources\Dolmen\common_sources\Support\SystemFactory;..\..\sources\Dolmen\common_sources\Support\General;..\..\sources\Dolmen\common_sources\Support\Heap;..\..\sources\Dolmen\common_sources\OSAL;..\..\sources\Dolmen\common_sources\Support\Property;..\..\sources\Dolmen\common_sources\Support\Trace;..\..\sources\Dolmen\common_sources\Support\MsgQueue;..\..\sources\Dolmen\common_sources\Support\StateMachine;..\..\sources\Dolmen\common_sources\Support\Status;..\..\sources\Dolmen\common_sources\Support\Settings;..\..\sources\Dolmen\common_sources\Support\Protocol\LoaderUpdater;..\..\sources\Dolmen\common_sources\VirtualDevice\FlashMgr;..\..\sources\Dolmen\common_sources\Support\GenericManager;..\..\sources\Dolmen\platform\Quadros_RTXc\OS\RTXC_CORE\Include;..\..\sources\Dolmen\platform\Quadros_RTXc\OS\RTXC_GEN\inc;..\..\sources\Dolmen\platform\Quadros_RTXc\OS\RTXC_CORE\CortexM3Core;..\..\sources\Dolmen\common_sources\VirtualDevice\Sensor;..\..\sources\Dolmen\common_sources\Support\DATA\Picture;..\..\sources\Dolmen\common_sources\VirtualDevice\Amplifier;..\..\sources\Dolmen\common_sources\HiService\Capture;..\..\sources\Dolmen\common_sources\Support\DATA\FrameAnalysis;..\..\sources\Dolmen\common_sources\Support\DATA\Movie;..\..\sources\Dolmen\common_sources\VirtualDevice\Illuminator;..\..\sources\Dolmen\common_sources\LoService\Communicate;..\..\sources\Dolmen\common_sources\Application\Scanner;..\..\sources\Dolmen\common_sources\VirtualDevice\Trigger;..\..\sources\Dolmen\common_sources\HiService\Processing;..\..\sources\Dolmen\common_sources\HiService\Processing\Decoder;..\..\sources\Dolmen\common_sources\Support\DATA\Result;..\..\sources\Dolmen\common_sources\LoService\SecurityMgr;..\..\sources\Dolmen\common_sources\VirtualDevice\ChannelBridge;..\..\sources\Dolmen\common_sources\LoService\Communicate\ImageChannel;..\..\sources\VirtualDevice\Sensor;..\..\sources\Application;..\..\sources\Dolmen\common_sources\SOC\Timer;..\..\sources\Dolmen\common_sources\SOC;..\..\sources\Dolmen\common_sources\LoService\LowPowerManager;..\..\sources\Dolmen\common_sources\SOC\GPIO;..\..\sources\SOC;..\..\sources\Dolmen\common_sources\SOC\USART;..\..\sources\Dolmen\common_sources\SOC\CommunicationSOC;..\..\sources\Dolmen\common_sources\Support\CircularBuffer;..\..\sources\platform;..\..\sources\OSAL\OS;..\..\sources\Dolmen\common_sources\OSAL\OS;..\..\sources\RTX\INC;..\..\..\SLS_Common\sources\VendorLib\libraries\libchip_samv7;..\..\..\SLS_Common\sources\VendorLib\libraries\libchip_samv7\include;..\..\..\SLS_Common\sources\VendorLib\libraries\libchip_samv7\include\samv7;..\..\..\SLS_Common\sources\VendorLib\libraries\libboard_samv7-ek;..\..\sources\Dolmen\common_sources\LoService\ServiceMgr;..\..\sources\Dolmen\common_sources\Support\Environment;..\..\sources\Dolmen\common_sources\LoService\Communicate\ServiceChannel;..\..\sources\Application\Compute\Processing;..\..\sources\Dolmen\common_sources\SOC\DMA;..\..\sources\Dolmen\common_sources\SOC\SPI;..\..\sources\Dolmen\common_sources\Support\DATA\Movie\src;..\..\sources\Dolmen\common_sources\LoService\DumpFrame;..\..\sources\HAL;..\..\sources\Dolmen\common_sources\HAL;..\..\sources\VirtualDevice\MotorEncoder;..\..\sources\Dolmen\common_sources\SOC\I2C;..\..\sources\Application\Diagnostic;..\..\sources\Application\Supervisor;..\..\sources\Application\Compute;..\..\sources\Dolmen\common_sources\HiService\PostProcessing;..\..\sources\Status;..\..\sources\Application\Config;..\..\sources\Dolmen\common_sources\HiService\ConfigManager;..\..\sources\Dolmen\common_sources\VirtualDevice\ChannelBridge\src;..\..\sources\VirtualDevice\Communication;..\..\..\SLS_Common\sources\VendorLib\libraries\libchip_samv7\include\samv7\component;..\..\..\SLS_Common\sources\VendorLib\libraries\libchip_samv7\include\samv7\instance;..\..\..\SLS_Common\sources\VendorLib\libraries\libchip_samv7\include\samv7\pio;..\..\..\SLS_Common\sources\VendorLib\libraries\libboard_samv7-ek\include;..\..\sources\VirtualDevice\Watchdog;..\..\sources\VirtualDevice\TemperatureSensorAPD;..\..\sources\include;.\RTE;..\..\sources\VirtualDevice\Display;..\..\sources\VirtualDevice\QuadratureEncoder;..\..\sources\VirtualDevice\SLS_RTC;..\..\sources\Application\Log_Manager;..\..\sources\VirtualDevice\Inputs;..\..\sources\VirtualDevice\DeviceLifetimeManager;..\..\sources\Motor\include;..\..\sources\VirtualDevice\TOF;..\..\sources\lib;..\..\..\SLS_Common\sources;..\..\..\SLS_Common\sources\include;..\..\..\SLS_Common\sources\lib;.\RTE\CMSIS\inc;..\..\sources\Application\GUI;..\..\..\sls_brand\sources\include;..\..\sources\Application\Compute\Decoder;..\..\sources\Application\Capture;..\..\..\sls_common\sources\lib\network;..\..\sources\include\measures</IncludePath>
- *           </VariousControls>
- *
- *
- */
 
 //TODO: this can return an expected.
 tinyxml2::XMLElement* searchDF(tinyxml2::XMLElement* element, std::string_view find_el_name, int num_occurrence) {
@@ -92,9 +82,7 @@ tinyxml2::XMLElement* findTarget(tinyxml2::XMLElement* element, std::string_view
 
     while(target_el) {
         std::string_view target_name {target_el->FirstChildElement("TargetName")->FirstChild()->Value()};
-        std::cout << target_name << std::endl;
         if (target_name == search_target_name) {
-            std::cout << "Found" << std::endl;
             break;
         }
         target_el = target_el->NextSiblingElement();
@@ -103,8 +91,57 @@ tinyxml2::XMLElement* findTarget(tinyxml2::XMLElement* element, std::string_view
     return target_el;
 }
 
+struct CompilationEntry {
+    std::string directory;
+    std::vector<std::string> arguments;
+    std::string file;
+};
+
+void to_json(nlohmann::json& j, const CompilationEntry& c) {
+    j = nlohmann::json{
+        {"directory", c.directory},
+        {"arguments", c.arguments},
+        {"file", c.file}
+    };
+}
+
+void from_json(const nlohmann::json& j, CompilationEntry& c) {
+    j.at("directory").get_to(c.directory);
+    j.at("arguments").get_to(c.arguments);
+    j.at("file").get_to(c.file);
+}
+
 int main() {
     using namespace tinyxml2;
+    using json = nlohmann::json;
+
+    constexpr const char* include_path_to_add[] = {
+        "C:\\Users\\TAmbrogini\\sls\\sls\\references\\SLS_Application\\projects\\uVision\\RTE\\Device\\ATSAME70Q21",
+        "C:\\Keil_v5\\ARM\\PACK\\ARM\\CMSIS\\4.5.0\\CMSIS\\Include",
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\MDK-Middleware\\7.0.0\\FileSystem\\Include",
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\MDK-Middleware\\7.0.0\\Network\\Include",
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-ESV7_SFP\\2.2.0\\Libraries\\libchip_samv7",
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-ESV7_SFP\\2.2.0\\Libraries\\libchip_samv7\\include",
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-E_DFP\\2.1.3\\include"
+    };
+
+    constexpr const char* defines_to_add[] = {
+        "_RTE_",
+        "__UVISION_VERSION=\"517\"",
+        "__CC_ARM"
+    };
+
+    constexpr const char* additional_defines[] = {
+        "--c99",
+        "-c",
+        "--cpu",
+        "Cortex-M7.fp.dp",
+        "-g",
+        "-O0",
+        "--apcs=interwork",
+        "--split_sections",
+        "--signed_chars"
+    };
 
     std::string_view keil_project_filename { "SLS_Application.uvprojx" };
 
@@ -142,7 +179,6 @@ int main() {
         }
         ++occ;
     }
-    std::cout << "The include path string for the target is: " << include_path_string << std::endl;
 
     const char* defines_string {};
     occ = {1};
@@ -159,15 +195,73 @@ int main() {
         }
         ++occ;
     }
-    std::cout << "The defines string for the target is: " << defines_string << std::endl;
 
+    std::string include_path {include_path_string};
 
+    const std::regex re(R"([;]+)");
+    std::sregex_token_iterator it{ include_path.begin(),
+                             include_path.end(), re, -1 };
+
+    std::vector<std::string> tokenized{ it, {} };
+
+    tokenized.erase(
+        std::remove_if(tokenized.begin(),
+                            tokenized.end(),
+                       [](std::string const& s) {
+                           return s.size() == 0;
+                       }),
+        tokenized.end());
+
+    for (int i = 0; i < sizeof(include_path_to_add)/sizeof(char*); ++i) {
+        tokenized.push_back(include_path_to_add[i]);
+    }
+
+    //TODO: is there a way to not create another string everytime?
+    for (int i = 0; i < tokenized.size(); ++i) {
+        tokenized[i] = "-I" + tokenized[i];
+    }
+
+    const std::regex re_define(R"([,]+)");
+    std::string defines {defines_string};
+    std::sregex_token_iterator it_define {defines.begin(), defines.end(),
+        re_define, -1};
+    std::vector<std::string> tokenized_defines{ it_define, {} };
+
+    tokenized_defines.erase(
+        std::remove_if(tokenized_defines.begin(), 
+                            tokenized_defines.end(),
+                       [](std::string const& s) {
+                           return s.size() == 0;
+                       }),
+        tokenized_defines.end());
+
+    for (int i = 0; i < sizeof(defines_to_add)/sizeof(char*); ++i) {
+        tokenized_defines.push_back(defines_to_add[i]);
+    }
+
+    std::ranges::for_each(tokenized_defines, [](std::string& s) {
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](char ch) {
+            return !std::isspace(ch);
+        }));
+    });
+
+    //TODO: is there a way to not create another string everytime?
+    for (int i = 0; i < tokenized_defines.size(); ++i) {
+        tokenized_defines[i] = "-D" + tokenized_defines[i];
+    }
+
+    for (int i = 0; i < sizeof(additional_defines)/sizeof(char*); ++i) {
+        tokenized_defines.push_back(additional_defines[i]);
+    }
+
+    tokenized.insert( tokenized.end(), tokenized_defines.begin(), tokenized_defines.end() );
     //TODO: now we have to take all the files.
     //I can just take all the filename element under the target tag.
     constexpr std::string_view filepath_tag {"FilePath"};
     int count {1};
     const XMLElement* filepath_element {};
     std::vector<const char*> filepaths {};
+    std::vector<CompilationEntry> entries {};
 
     do {
         filepath_element = searchDF(target_element, filepath_tag, count);
@@ -178,14 +272,21 @@ int main() {
         }
     } while (filepath_element);
 
-
+    //TODO: i could also pass the directory value on the argument line.
+    fs::path current_dir { "." };
+    //TODO: use a real value.
+    //fs::path current_dir_abs {fs::absolute(current_dir).string()};
+    const std::string current_dir_abs {"C:\\Users\\TAmbrogini\\sls\\sls\\references\\SLS_Application\\projects\\uVision"};
     for (auto filepath : filepaths) {
-        std::cout << filepath << std::endl;
+        entries.push_back(CompilationEntry{
+                .directory = current_dir_abs,
+                .arguments = tokenized,
+                .file = filepath
+                });
     }
 
-    //TODO: i could also pass the directory value on the command line.
-    fs::path current_dir { "." };
-    fs::path current_dir_abs {fs::absolute(current_dir).string()};
-    std::cout << current_dir_abs << std::endl;
+    json j(entries);
+    std::ofstream o("compile_commands.json");
+    o << std::setw(4) << j << std::endl;
 }
 
