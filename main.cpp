@@ -1,3 +1,4 @@
+#include <expected>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -111,7 +112,56 @@ void from_json(const nlohmann::json& j, CompilationEntry& c) {
     j.at("file").get_to(c.file);
 }
 
-int main() {
+struct Argument {
+    std::string_view option;
+    std::string_view value;
+};
+
+std::expected<std::vector<Argument>, std::string_view>
+parseArguments(const std::vector<std::string_view>& args) {
+    std::vector<Argument> ret {};
+
+    for (int i = 0; i < args.size(); ++i) {
+        Argument arg {};
+        if (args[i][0] == '-') {
+            arg.option = args[i];
+        } else {
+            return std::unexpected("There is an argument without the option.");
+        }
+
+        if (((i + 1) < args.size()) && (args[i + 1][0] != '-')) {
+            arg.value = args[i + 1];
+            i = i + 1;
+        }
+
+        ret.push_back(arg);
+    }
+
+    return ret;
+}
+
+std::expected<std::string_view, std::string_view>
+searchArguments(std::vector<Argument> args, std::string_view option) {
+    for (auto arg : args) {
+        if (arg.option == option) {
+            return arg.value;
+        }
+    }
+
+    return std::unexpected("Option not found");
+}
+
+std::filesystem::path truncatePath(const std::filesystem::path& filePath, int levelsUp) {
+    auto result = filePath.parent_path();
+
+    for (int i = 0; i < levelsUp && result.has_parent_path(); ++i) {
+        result = result.parent_path();
+    }
+
+    return result;
+}
+
+int main(int argc, char* argv[]) {
     using namespace tinyxml2;
     using json = nlohmann::json;
 
@@ -143,26 +193,58 @@ int main() {
         "--signed_chars"
     };
 
-    std::string_view keil_project_filename { "SLS_Application.uvprojx" };
+    std::vector<std::string_view> args {argv + 1, argv + argc};
+
+    auto ret { parseArguments(args) };
+    if (!ret) {
+        std::cout << ret.error() << std::endl;
+        return 0;
+    }
+    std::vector<Argument> arguments { ret.value() };
+
+    for (auto a : arguments) {
+        std::cout << a.option << std::endl;
+        std::cout << a.value << std::endl;
+
+        std::cout << std::endl;
+    }
+
+    auto keil_filename_expected { searchArguments(arguments, "-f") };
+    if (!keil_filename_expected) {
+        std::cout << "Missing uvprojx path! Pass it with -f option." << std::endl;
+        return 0;
+    }
+
+    std::string_view keil_project_filename { keil_filename_expected.value() };
+    std::cout << "Keil file name: " << keil_project_filename << std::endl;
 
     fs::path keil_project_file { keil_project_filename };
     fs::path keil_project_file_abs { fs::absolute(keil_project_file).string() };
 
     XMLDocument doc;
-    //TODO: check for error on loadFile()
-    doc.LoadFile(keil_project_file_abs.string().c_str());
+    XMLError res_load = doc.LoadFile(keil_project_file_abs.string().c_str());
+    if (res_load != 0) {
+        std::cout << "Error loading the XML file: " <<  keil_project_file_abs << std::endl;
+        return 0;
+    }
 
     bool found {false};
     XMLElement* root = doc.RootElement();
     const char* include_path_value {};
     const char* defines_value {};
 
-    constexpr std::string_view target_name {"SLS_release_enhanced"};
+    auto target_expected { searchArguments(arguments, "-t") };
+    if (!target_expected) {
+        std::cout << "Missing target! Pass it with -t option." << std::endl;
+        return 0;
+    }
+    const std::string_view target_name { target_expected.value() };
     XMLElement* target_element = findTarget(root, target_name);
     if(!target_element) {
         std::cout << "The target was not found!" << std::endl;
         return 1;
     }
+    std::cout << "Target: " << target_name << std::endl;
 
     const char* include_path_string {};
     int occ {1};
@@ -202,24 +284,25 @@ int main() {
     std::sregex_token_iterator it{ include_path.begin(),
                              include_path.end(), re, -1 };
 
-    std::vector<std::string> tokenized{ it, {} };
-
-    tokenized.erase(
-        std::remove_if(tokenized.begin(),
-                            tokenized.end(),
+    std::vector<std::string> tokenized_include { it, {} };
+    tokenized_include.erase(
+        std::remove_if(tokenized_include.begin(),
+                            tokenized_include.end(),
                        [](std::string const& s) {
                            return s.size() == 0;
                        }),
-        tokenized.end());
+        tokenized_include.end());
 
     for (int i = 0; i < sizeof(include_path_to_add)/sizeof(char*); ++i) {
-        tokenized.push_back(include_path_to_add[i]);
+        tokenized_include.push_back(include_path_to_add[i]);
     }
 
     //TODO: is there a way to not create another string everytime?
-    for (int i = 0; i < tokenized.size(); ++i) {
-        tokenized[i] = "-I" + tokenized[i];
+    for (int i = 0; i < tokenized_include.size(); ++i) {
+        tokenized_include[i] = "-I" + tokenized_include[i];
     }
+
+    std::vector<std::string> tokenized{ tokenized_include };
 
     const std::regex re_define(R"([,]+)");
     std::string defines {defines_string};
@@ -255,8 +338,6 @@ int main() {
     }
 
     tokenized.insert( tokenized.end(), tokenized_defines.begin(), tokenized_defines.end() );
-    //TODO: now we have to take all the files.
-    //I can just take all the filename element under the target tag.
     constexpr std::string_view filepath_tag {"FilePath"};
     int count {1};
     const XMLElement* filepath_element {};
@@ -272,21 +353,51 @@ int main() {
         }
     } while (filepath_element);
 
-    //TODO: i could also pass the directory value on the argument line.
-    fs::path current_dir { "." };
-    //TODO: use a real value.
-    //fs::path current_dir_abs {fs::absolute(current_dir).string()};
-    const std::string current_dir_abs {"C:\\Users\\TAmbrogini\\sls\\sls\\references\\SLS_Application\\projects\\uVision"};
-    for (auto filepath : filepaths) {
-        entries.push_back(CompilationEntry{
-                .directory = current_dir_abs,
-                .arguments = tokenized,
-                .file = filepath
-                });
-    }
+    auto compile_commands_expected { searchArguments(arguments, "--compile_commands") };
+    if (compile_commands_expected) {
+        std::string uvision_dir { "projects/uVision" };
+        for (auto filepath : filepaths) {
+            entries.push_back(CompilationEntry {
+                    .directory = uvision_dir,
+                    .arguments = tokenized,
+                    .file = filepath
+                    });
+        }
 
-    json j(entries);
-    std::ofstream o("compile_commands.json");
-    o << std::setw(4) << j << std::endl;
+        json j(entries);
+        fs::path subproject_rel_path = truncatePath(keil_project_filename, 2);
+
+        std::ofstream o(subproject_rel_path.string() + "/compile_commands.json");
+        o << std::setw(4) << j << std::endl;
+    } else if (auto ret { searchArguments(arguments, "--pclint") }; ret) {
+        //TODO: add the pclint configuration files generation.
+//        std::ofstream sources_pclint ("sources.lnt");
+//        std::ofstream include_pclint ("include.lnt");
+//
+//        int occ {1};
+//        XMLElement* elem = nullptr;
+//        std::vector<std::string_view> filenames {};
+//
+//        do {
+//            elem = searchDF(target_element, "FileName", occ);
+//            ++occ;
+//            if (elem) {
+//                const char* filename = elem->FirstChild()->Value();
+//                filenames.push_back(filename);
+//            }
+//        } while(elem);
+//
+//        for (const auto& a : tokenized_include) {
+//            include_pclint << a << std::endl;
+//        }
+//
+//        std::string_view sources_file_dir { compilation_dir.string() };
+//        for (const auto a : filenames) {
+//            sources_pclint << "\"" << compilation_dir_view << "/" << a << "\"" << std::endl;
+//        }
+//
+//        include_pclint.close();
+//        sources_pclint.close();
+    }
 }
 
