@@ -231,7 +231,7 @@ int main(int argc, char* argv[]) {
         std::cout << "Missing target! Pass it with -t option." << std::endl;
         return 0;
     }
-    const std::string_view target_name { target_expected.value() };
+    const std::string target_name { target_expected.value() };
     XMLElement* target_element = findTarget(root, target_name);
     if(!target_element) {
         std::cout << "The target was not found!" << std::endl;
@@ -360,7 +360,8 @@ int main(int argc, char* argv[]) {
         json j(entries);
         fs::path subproject_rel_path = truncatePath(keil_project_filename, 2);
 
-        std::ofstream o(subproject_rel_path.string() + "/compile_commands.json");
+        std::ofstream o(subproject_rel_path.string() + "tools/cppcheck/"
+                + target_name + "/compile_commands.json");
         o << std::setw(4) << j << std::endl;
     } else if (auto ret { searchArguments(arguments, "--pclint") }; ret) {
         //TODO: add the pclint configuration files generation.
