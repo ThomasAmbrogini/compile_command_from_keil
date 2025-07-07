@@ -202,13 +202,6 @@ int main(int argc, char* argv[]) {
     }
     std::vector<Argument> arguments { ret.value() };
 
-    for (auto a : arguments) {
-        std::cout << a.option << std::endl;
-        std::cout << a.value << std::endl;
-
-        std::cout << std::endl;
-    }
-
     auto keil_filename_expected { searchArguments(arguments, "-f") };
     if (!keil_filename_expected) {
         std::cout << "Missing uvprojx path! Pass it with -f option." << std::endl;
