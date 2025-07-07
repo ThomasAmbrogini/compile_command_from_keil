@@ -162,6 +162,7 @@ std::filesystem::path truncatePath(const std::filesystem::path& filePath, int le
 }
 
 int main(int argc, char* argv[]) {
+    //TODO: need the usage example.
     using namespace tinyxml2;
     using json = nlohmann::json;
 
