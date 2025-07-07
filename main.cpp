@@ -359,10 +359,14 @@ int main(int argc, char* argv[]) {
 
         json j(entries);
         fs::path subproject_rel_path = truncatePath(keil_project_filename, 2);
+        std::string filepath = subproject_rel_path.string() + "/tools/cppcheck/"
+                + target_name + "/compile_commands.json";
+        std::filesystem::path path(filepath);
+        std::filesystem::create_directories(path.parent_path());
+        std::ofstream o(filepath);
 
-        std::ofstream o(subproject_rel_path.string() + "tools/cppcheck/"
-                + target_name + "/compile_commands.json");
         o << std::setw(4) << j << std::endl;
+        o.close();
     } else if (auto ret { searchArguments(arguments, "--pclint") }; ret) {
         //TODO: add the pclint configuration files generation.
 //        std::ofstream sources_pclint ("sources.lnt");
