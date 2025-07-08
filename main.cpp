@@ -162,6 +162,17 @@ std::filesystem::path truncatePath(const std::filesystem::path& filePath, int le
     return result;
 }
 
+void usage() {
+    std::puts("./executable [-h] {--compile_commands/--pc_lint} -f keil_proj -t target\n\
+                \n\
+               -h for the current help window.\n\
+               --compile_commands the output must be a compile_commands.json.\n\
+               --pc_lint the output must be for pc lint.\n\
+               -f keil project path.\n\
+               -t target of the keil project.\n\
+               ");
+}
+
 int main(int argc, char* argv[]) {
     //TODO: need the usage example.
     using namespace tinyxml2;
@@ -200,13 +211,21 @@ int main(int argc, char* argv[]) {
     auto ret { parseArguments(args) };
     if (!ret) {
         std::puts(ret.error().data());
+        usage();
         return 0;
     }
     std::vector<Argument> arguments { ret.value() };
 
+    auto help_window_expected { searchArguments(arguments, "-h") };
+    if (help_window_expected) {
+        usage();
+        return 0;
+    }
+
     auto keil_filename_expected { searchArguments(arguments, "-f") };
     if (!keil_filename_expected) {
         std::puts("Missing uvprojx path! Pass it with -f option.");
+        usage();
         return 0;
     }
 
@@ -220,6 +239,7 @@ int main(int argc, char* argv[]) {
     XMLError res_load = doc.LoadFile(keil_project_file_abs.string().c_str());
     if (res_load != 0) {
         fmt::print("Error loading the XML file: {}\n", keil_project_file_abs.string());
+        usage();
         return 0;
     }
 
@@ -231,12 +251,14 @@ int main(int argc, char* argv[]) {
     auto target_expected { searchArguments(arguments, "-t") };
     if (!target_expected) {
         std::puts("Missing target! Pass it with -t option.");
+        usage();
         return 0;
     }
     const std::string target_name { target_expected.value() };
     XMLElement* target_element = findTarget(root, target_name);
     if(!target_element) {
         std::puts("The target was not found!");
+        usage();
         return 1;
     }
     fmt::print("Target: {}\n", target_name);
@@ -252,6 +274,7 @@ int main(int argc, char* argv[]) {
             }
         } else {
             std::puts("The element: IncludePath does not exist");
+            usage();
             return 2;
         }
         ++occ;
@@ -268,6 +291,7 @@ int main(int argc, char* argv[]) {
             }
         } else {
             std::puts("The element: Define does not exist");
+            usage();
             return 3;
         }
         ++occ;
