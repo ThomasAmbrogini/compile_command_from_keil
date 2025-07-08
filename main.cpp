@@ -167,7 +167,7 @@ int main(int argc, char* argv[]) {
     using namespace tinyxml2;
     using json = nlohmann::json;
 
-    constexpr const char* include_path_to_add[] = {
+    constexpr static const char* include_path_to_add[] = {
         "C:\\Users\\TAmbrogini\\sls\\sls\\references\\SLS_Application\\projects\\uVision\\RTE\\Device\\ATSAME70Q21",
         "C:\\Keil_v5\\ARM\\PACK\\ARM\\CMSIS\\4.5.0\\CMSIS\\Include",
         "C:\\Keil_v5\\ARM\\PACK\\Keil\\MDK-Middleware\\7.0.0\\FileSystem\\Include",
@@ -177,13 +177,13 @@ int main(int argc, char* argv[]) {
         "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-E_DFP\\2.1.3\\include"
     };
 
-    constexpr const char* defines_to_add[] = {
+    constexpr static const char* defines_to_add[] = {
         "_RTE_",
         "__UVISION_VERSION=\"517\"",
         "__CC_ARM"
     };
 
-    constexpr const char* additional_defines[] = {
+    constexpr static const char* additional_defines[] = {
         "--c99",
         "-c",
         "--cpu",
