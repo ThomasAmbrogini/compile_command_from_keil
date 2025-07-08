@@ -6,10 +6,12 @@ project("Compile commands keil converter"
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
-add_subdirectory(tinyxml2)
+add_subdirectory(fmt)
 add_subdirectory(json)
+add_subdirectory(tinyxml2)
 
 add_executable(converter main.cpp)
 target_compile_options(converter PRIVATE -g)
 target_link_libraries(converter PRIVATE tinyxml2)
 target_link_libraries(converter PRIVATE nlohmann_json)
+target_link_libraries(converter PRIVATE fmt)

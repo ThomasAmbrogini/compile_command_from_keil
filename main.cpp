@@ -1,7 +1,8 @@
+#include <cstdio>
 #include <expected>
 #include <filesystem>
+#include <fmt/base.h>
 #include <fstream>
-#include <iostream>
 #include <ranges>
 #include <regex>
 #include <string_view>
@@ -198,19 +199,19 @@ int main(int argc, char* argv[]) {
 
     auto ret { parseArguments(args) };
     if (!ret) {
-        std::cout << ret.error() << std::endl;
+        std::puts(ret.error().data());
         return 0;
     }
     std::vector<Argument> arguments { ret.value() };
 
     auto keil_filename_expected { searchArguments(arguments, "-f") };
     if (!keil_filename_expected) {
-        std::cout << "Missing uvprojx path! Pass it with -f option." << std::endl;
+        std::puts("Missing uvprojx path! Pass it with -f option.");
         return 0;
     }
 
     std::string_view keil_project_filename { keil_filename_expected.value() };
-    std::cout << "Keil file name: " << keil_project_filename << std::endl;
+    fmt::print("Keil file name: {}\n", keil_project_filename);
 
     fs::path keil_project_file { keil_project_filename };
     fs::path keil_project_file_abs { fs::absolute(keil_project_file).string() };
@@ -218,7 +219,7 @@ int main(int argc, char* argv[]) {
     XMLDocument doc;
     XMLError res_load = doc.LoadFile(keil_project_file_abs.string().c_str());
     if (res_load != 0) {
-        std::cout << "Error loading the XML file: " <<  keil_project_file_abs << std::endl;
+        fmt::print("Error loading the XML file: {}\n", keil_project_file_abs.string());
         return 0;
     }
 
@@ -229,16 +230,16 @@ int main(int argc, char* argv[]) {
 
     auto target_expected { searchArguments(arguments, "-t") };
     if (!target_expected) {
-        std::cout << "Missing target! Pass it with -t option." << std::endl;
+        std::puts("Missing target! Pass it with -t option.");
         return 0;
     }
     const std::string target_name { target_expected.value() };
     XMLElement* target_element = findTarget(root, target_name);
     if(!target_element) {
-        std::cout << "The target was not found!" << std::endl;
+        std::puts("The target was not found!");
         return 1;
     }
-    std::cout << "Target: " << target_name << std::endl;
+    fmt::print("Target: {}\n", target_name);
 
     const char* include_path_string {};
     int occ {1};
@@ -250,7 +251,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
         } else {
-            std::cout << "The element: IncludePath does not exist" << std::endl;
+            std::puts("The element: IncludePath does not exist");
             return 2;
         }
         ++occ;
@@ -266,7 +267,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
         } else {
-            std::cout << "The element: Define does not exist" << std::endl;
+            std::puts("The element: Define does not exist");
             return 3;
         }
         ++occ;
