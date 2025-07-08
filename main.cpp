@@ -390,8 +390,8 @@ int main(int argc, char* argv[]) {
         std::filesystem::path path(filepath);
         std::filesystem::create_directories(path.parent_path());
         std::ofstream o(filepath);
-
         o << std::setw(4) << j << std::endl;
+        fmt::print("The compile_commands.json file has been created in: {}", filepath);
         o.close();
     } else if (auto ret { searchArguments(arguments, "--pclint") }; ret) {
         //TODO: add the pclint configuration files generation.
