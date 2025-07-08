@@ -152,24 +152,15 @@ searchArguments(std::vector<Argument> args, std::string_view option) {
     return std::unexpected("Option not found");
 }
 
-std::filesystem::path truncatePath(const std::filesystem::path& filePath, int levelsUp) {
-    auto result = filePath.parent_path();
-
-    for (int i = 0; i < levelsUp && result.has_parent_path(); ++i) {
-        result = result.parent_path();
-    }
-
-    return result;
-}
-
 void usage() {
-    std::puts("./executable [-h] {--compile_commands/--pc_lint} -f keil_proj -t target\n\
+    std::puts("./executable [-hd] {--compile_commands/--pc_lint} -f keil_proj -t target\n\
                 \n\
                -h for the current help window.\n\
                --compile_commands the output must be a compile_commands.json.\n\
                --pc_lint the output must be for pc lint.\n\
                -f keil project path.\n\
                -t target of the keil project.\n\
+               -d specifies the directory in which the output has to be created.\n\
                ");
 }
 
@@ -384,14 +375,18 @@ int main(int argc, char* argv[]) {
         }
 
         json j(entries);
-        fs::path subproject_rel_path = truncatePath(keil_project_filename, 2);
-        std::string filepath = subproject_rel_path.string() + "/tools/cppcheck/"
-                + target_name + "/compile_commands.json";
-        std::filesystem::path path(filepath);
-        std::filesystem::create_directories(path.parent_path());
-        std::ofstream o(filepath);
+        std::string compile_commands_path_str = "compile_commands.json";
+        auto output_directory { searchArguments(arguments, "-d") };
+        if (output_directory) {
+            compile_commands_path_str = std::string(output_directory.value()) + "/" + compile_commands_path_str;
+            fs::path compile_commands_path(compile_commands_path_str);
+            fs::create_directories(compile_commands_path.parent_path());
+        }
+
+        std::ofstream o(compile_commands_path_str);
         o << std::setw(4) << j << std::endl;
-        fmt::print("The compile_commands.json file has been created in: {}", filepath);
+
+        fmt::print("The compile_commands.json file has been created in: {}", fs::absolute(compile_commands_path_str).string());
         o.close();
     } else if (auto ret { searchArguments(arguments, "--pclint") }; ret) {
         //TODO: add the pclint configuration files generation.
