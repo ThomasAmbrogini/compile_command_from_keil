@@ -313,7 +313,8 @@ int main(int argc, char* argv[]) {
         tokenized_include[i] = "-I" + tokenized_include[i];
     }
 
-    std::vector<std::string> tokenized{ tokenized_include };
+    std::vector<std::string> tokenized{ "armcc.exe" };
+    tokenized.insert(tokenized.end(), tokenized_include.begin(), tokenized_include.end());
 
     const std::regex re_define(R"([,]+)");
     std::string defines {defines_string};
