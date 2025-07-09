@@ -176,13 +176,16 @@ int main(int argc, char* argv[]) {
         "C:\\Keil_v5\\ARM\\PACK\\Keil\\MDK-Middleware\\7.0.0\\Network\\Include",
         "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-ESV7_SFP\\2.2.0\\Libraries\\libchip_samv7",
         "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-ESV7_SFP\\2.2.0\\Libraries\\libchip_samv7\\include",
-        "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-E_DFP\\2.1.3\\include"
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\SAM-E_DFP\\2.1.3\\include",
+        "C:\\Keil_v5\\ARM\\PACK\\Keil\\STM32F3xx_DFP\\2.1.0\\Drivers\\CMSIS\\Device\\ST\\STM32F3xx\\Include",
+        "C:\\Keil_v5\\ARM\\PACK\\ARM\\CMSIS\\4.5.0\\CMSIS\\RTOS\\RTX\\INC"
     };
 
     constexpr static const char* defines_to_add[] = {
         "_RTE_",
         "__UVISION_VERSION=\"517\"",
-        "__CC_ARM"
+        "__CC_ARM",
+        "__MICROLIB"
     };
 
     constexpr static const char* additional_defines[] = {
@@ -336,6 +339,10 @@ int main(int argc, char* argv[]) {
         s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](char ch) {
             return !std::isspace(ch);
         }));
+
+        /* Remove surrounding single quotes, if any. */
+        if (!s.empty() && s.front() == '\'') s.erase(0, 1);
+        if (!s.empty() && s.back() == '\'') s.pop_back();
     });
 
     //TODO: is there a way to not create another string everytime?
