@@ -153,11 +153,9 @@ searchArguments(std::vector<Argument> args, std::string_view option) {
 }
 
 void usage() {
-    std::puts("./executable [-hd] {--compile_commands/--pc_lint} -f keil_proj -t target\n\
+    std::puts("./executable [-hd] -f keil_proj -t target\n\
                 \n\
                -h for the current help window.\n\
-               --compile_commands the output must be a compile_commands.json.\n\
-               --pc_lint the output must be for pc lint.\n\
                -f keil project path.\n\
                -t target of the keil project.\n\
                -d specifies the directory in which the output has to be created.\n\
@@ -165,7 +163,6 @@ void usage() {
 }
 
 int main(int argc, char* argv[]) {
-    //TODO: need the usage example.
     using namespace tinyxml2;
     using json = nlohmann::json;
 
@@ -370,60 +367,28 @@ int main(int argc, char* argv[]) {
         }
     } while (filepath_element);
 
-    auto compile_commands_expected { searchArguments(arguments, "--compile_commands") };
-    if (compile_commands_expected) {
-        std::string uvision_dir { "projects/uVision" };
-        for (auto filepath : filepaths) {
-            entries.push_back(CompilationEntry {
-                    .directory = uvision_dir,
-                    .arguments = tokenized,
-                    .file = filepath
-                    });
-        }
-
-        json j(entries);
-        std::string compile_commands_path_str = "compile_commands.json";
-        auto output_directory { searchArguments(arguments, "-d") };
-        if (output_directory) {
-            compile_commands_path_str = std::string(output_directory.value()) + "/" + compile_commands_path_str;
-            fs::path compile_commands_path(compile_commands_path_str);
-            fs::create_directories(compile_commands_path.parent_path());
-        }
-
-        std::ofstream o(compile_commands_path_str);
-        o << std::setw(4) << j << std::endl;
-
-        fmt::print("The compile_commands.json file has been created in: {}", fs::absolute(compile_commands_path_str).string());
-        o.close();
-    } else if (auto ret { searchArguments(arguments, "--pclint") }; ret) {
-        //TODO: add the pclint configuration files generation.
-//        std::ofstream sources_pclint ("sources.lnt");
-//        std::ofstream include_pclint ("include.lnt");
-//
-//        int occ {1};
-//        XMLElement* elem = nullptr;
-//        std::vector<std::string_view> filenames {};
-//
-//        do {
-//            elem = searchDF(target_element, "FileName", occ);
-//            ++occ;
-//            if (elem) {
-//                const char* filename = elem->FirstChild()->Value();
-//                filenames.push_back(filename);
-//            }
-//        } while(elem);
-//
-//        for (const auto& a : tokenized_include) {
-//            include_pclint << a << std::endl;
-//        }
-//
-//        std::string_view sources_file_dir { compilation_dir.string() };
-//        for (const auto a : filenames) {
-//            sources_pclint << "\"" << compilation_dir_view << "/" << a << "\"" << std::endl;
-//        }
-//
-//        include_pclint.close();
-//        sources_pclint.close();
+    std::string uvision_dir { "projects/uVision" };
+    for (auto filepath : filepaths) {
+        entries.push_back(CompilationEntry {
+                .directory = uvision_dir,
+                .arguments = tokenized,
+                .file = filepath
+                });
     }
+
+    json j(entries);
+    std::string compile_commands_path_str = "compile_commands.json";
+    auto output_directory { searchArguments(arguments, "-d") };
+    if (output_directory) {
+        compile_commands_path_str = std::string(output_directory.value()) + "/" + compile_commands_path_str;
+        fs::path compile_commands_path(compile_commands_path_str);
+        fs::create_directories(compile_commands_path.parent_path());
+    }
+
+    std::ofstream o(compile_commands_path_str);
+    o << std::setw(4) << j << std::endl;
+
+    fmt::print("The compile_commands.json file has been created in: {}", fs::absolute(compile_commands_path_str).string());
+    o.close();
 }
 
