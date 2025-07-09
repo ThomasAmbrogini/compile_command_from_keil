@@ -12,71 +12,12 @@
 #include "tinyxml2.h"
 #include <nlohmann/json.hpp>
 
+#include "cmd_line.h"
+#include "compile_db.h"
+#include "static_map.h"
+#include "xml_analysis.h"
+
 namespace fs = std::filesystem;
-
-//TODO: this can return an expected.
-tinyxml2::XMLElement* searchDF(tinyxml2::XMLElement* element, std::string_view find_el_name, int num_occurrence) {
-    using namespace tinyxml2;
-
-    XMLElement* ret {};
-    int count {};
-    std::vector<XMLElement*> frontier;
-    frontier.push_back(element);
-
-    while(frontier.size() != 0) {
-        element = frontier.back();
-        frontier.pop_back();
-        if (element->Name() == find_el_name) {
-            ++count;
-            if (count == num_occurrence) {
-                ret = element;
-                break;
-            }
-        }
-
-        if (element->LastChildElement()) {
-            element = element->LastChildElement();
-            frontier.push_back(element);
-            while(element->PreviousSiblingElement()) {
-                element = element->PreviousSiblingElement();
-                frontier.push_back(element);
-            }
-        }
-    }
-
-    return ret;
-}
-
-tinyxml2::XMLElement* searchDFRecursive(tinyxml2::XMLElement* element, std::string_view find_el_name, int& num_occurrence) {
-    using namespace tinyxml2;
-
-    if (!element) {
-        return nullptr;
-    }
-
-    if (element->Name() == find_el_name) {
-        --num_occurrence;
-        if (num_occurrence == 0) {
-            return element;
-        }
-    }
-
-    if (element->FirstChildElement()) {
-        auto ret = searchDFRecursive(element->FirstChildElement(), find_el_name, num_occurrence); 
-        if (ret) {
-            return ret;
-        }
-    }
-
-    if (element->NextSiblingElement()) {
-        auto ret = searchDFRecursive(element->NextSiblingElement(), find_el_name, num_occurrence); 
-        if (ret) {
-            return ret;
-        }
-    }
-
-    return nullptr;
-}
 
 tinyxml2::XMLElement* findTarget(tinyxml2::XMLElement* element, std::string_view search_target_name) {
     constexpr std::string_view target_element_name {"Target"};
@@ -93,63 +34,9 @@ tinyxml2::XMLElement* findTarget(tinyxml2::XMLElement* element, std::string_view
     return target_el;
 }
 
-struct CompilationEntry {
-    std::string directory;
-    std::vector<std::string> arguments;
-    std::string file;
-};
-
-void to_json(nlohmann::json& j, const CompilationEntry& c) {
-    j = nlohmann::json{
-        {"directory", c.directory},
-        {"arguments", c.arguments},
-        {"file", c.file}
-    };
-}
-
-void from_json(const nlohmann::json& j, CompilationEntry& c) {
-    j.at("directory").get_to(c.directory);
-    j.at("arguments").get_to(c.arguments);
-    j.at("file").get_to(c.file);
-}
-
-struct Argument {
-    std::string_view option;
-    std::string_view value;
-};
-
-std::expected<std::vector<Argument>, std::string_view>
-parseArguments(const std::vector<std::string_view>& args) {
-    std::vector<Argument> ret {};
-
-    for (int i = 0; i < args.size(); ++i) {
-        Argument arg {};
-        if (args[i][0] == '-') {
-            arg.option = args[i];
-        } else {
-            return std::unexpected("There is an argument without the option.");
-        }
-
-        if (((i + 1) < args.size()) && (args[i + 1][0] != '-')) {
-            arg.value = args[i + 1];
-            i = i + 1;
-        }
-
-        ret.push_back(arg);
-    }
-
-    return ret;
-}
-
-std::expected<std::string_view, std::string_view>
-searchArguments(std::vector<Argument> args, std::string_view option) {
-    for (auto arg : args) {
-        if (arg.option == option) {
-            return arg.value;
-        }
-    }
-
-    return std::unexpected("Option not found");
+constexpr std::string_view getDeviceName(std::string_view device_element) {
+    constexpr static constexpr_map<std::string_view, std::string_view> device_elements { { "ATSAME70Q21", "__SAME70Q21__" } };
+    return device_elements.get(device_element);
 }
 
 void usage() {
@@ -255,45 +142,12 @@ int main(int argc, char* argv[]) {
     }
     fmt::print("Target: {}\n", target_name);
 
-    const char* include_path_string {};
-    int occ {1};
-    while(true) {
-        XMLElement* element = searchDF(target_element, "IncludePath", occ);
-        if (element) {
-            if (!element->NoChildren()) {
-                include_path_string = element->FirstChild()->Value();
-                break;
-            }
-        } else {
-            std::puts("The element: IncludePath does not exist");
-            usage();
-            return 2;
-        }
-        ++occ;
-    }
-
-    const char* defines_string {};
-    occ = {1};
-    while(true) {
-        XMLElement* element = searchDF(target_element, "Define", occ);
-        if (element) {
-            if (!element->NoChildren()) {
-                defines_string = element->FirstChild()->Value();
-                break;
-            }
-        } else {
-            std::puts("The element: Define does not exist");
-            usage();
-            return 3;
-        }
-        ++occ;
-    }
-
-    std::string include_path {include_path_string};
+    std::string include_string { std::string(getElementValue(target_element, "IncludePath")) };
+    std::string defines_string { std::string(getElementValue(target_element, "Define")) };
 
     const std::regex re(R"([;]+)");
-    std::sregex_token_iterator it{ include_path.begin(),
-                             include_path.end(), re, -1 };
+    std::sregex_token_iterator it{ include_string.begin(),
+                                   include_string.end(), re, -1 };
 
     std::vector<std::string> tokenized_include { it, {} };
     tokenized_include.erase(
@@ -317,13 +171,12 @@ int main(int argc, char* argv[]) {
     tokenized.insert(tokenized.end(), tokenized_include.begin(), tokenized_include.end());
 
     const std::regex re_define(R"([,]+)");
-    std::string defines {defines_string};
-    std::sregex_token_iterator it_define {defines.begin(), defines.end(),
+    std::sregex_token_iterator it_define {defines_string.begin(), defines_string.end(),
         re_define, -1};
     std::vector<std::string> tokenized_defines{ it_define, {} };
 
     tokenized_defines.erase(
-        std::remove_if(tokenized_defines.begin(), 
+        std::remove_if(tokenized_defines.begin(),
                             tokenized_defines.end(),
                        [](std::string const& s) {
                            return s.size() == 0;
@@ -332,6 +185,13 @@ int main(int argc, char* argv[]) {
 
     for (int i = 0; i < sizeof(defines_to_add)/sizeof(char*); ++i) {
         tokenized_defines.push_back(defines_to_add[i]);
+    }
+
+    XMLElement* device_element { searchDF(root, "Device", 1) };
+    if (device_element) {
+        const char* device_name = device_element->FirstChild()->Value();
+        std::string_view device_define { getDeviceName(device_name) };
+        tokenized_defines.push_back(device_define.data());
     }
 
     std::ranges::for_each(tokenized_defines, [](std::string& s) {
@@ -354,21 +214,11 @@ int main(int argc, char* argv[]) {
     }
 
     tokenized.insert( tokenized.end(), tokenized_defines.begin(), tokenized_defines.end() );
+
     constexpr std::string_view filepath_tag {"FilePath"};
-    int count {1};
-    const XMLElement* filepath_element {};
-    std::vector<const char*> filepaths {};
+    std::vector<std::string_view> filepaths = getAllValues(target_element, filepath_tag);
+
     std::vector<CompilationEntry> entries {};
-
-    do {
-        filepath_element = searchDF(target_element, filepath_tag, count);
-        ++count;
-        if (filepath_element) {
-            const char* filepath = filepath_element->FirstChild()->Value();
-            filepaths.push_back(filepath);
-        }
-    } while (filepath_element);
-
     std::string uvision_dir { "projects/uVision" };
     for (auto filepath : filepaths) {
         entries.push_back(CompilationEntry {
