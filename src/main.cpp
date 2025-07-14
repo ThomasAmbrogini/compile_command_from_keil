@@ -8,13 +8,13 @@
 #include <string_view>
 #include <thread>
 #include <vector>
+#include <unordered_map>
 
 #include "tinyxml2.h"
 #include <nlohmann/json.hpp>
 
 #include "cmd_line.h"
 #include "compile_db.h"
-#include "static_map.h"
 #include "xml_analysis.h"
 
 namespace fs = std::filesystem;
@@ -34,9 +34,19 @@ tinyxml2::XMLElement* findTarget(tinyxml2::XMLElement* element, std::string_view
     return target_el;
 }
 
-constexpr std::string_view getDeviceName(std::string_view device_element) {
-    constexpr static constexpr_map<std::string_view, std::string_view> device_elements { { "ATSAME70Q21", "__SAME70Q21__" } };
-    return device_elements.get(device_element);
+std::string_view getDeviceName(std::string_view device_element) {
+    static const std::unordered_map<std::string_view, std::string_view>
+        device_elements = { {"ATSAME70Q21", "__SAME70Q21__"},
+                            {"STM32F051T8Yx", "STM32F051x8"},
+                            {"STM32F373VCTx", "STM32F373VC"} };
+
+
+    auto it = device_elements.find(device_element);
+    if (it != device_elements.end()) {
+        return it->second;
+    }
+
+    return {};
 }
 
 void usage() {
@@ -191,7 +201,9 @@ int main(int argc, char* argv[]) {
     if (device_element) {
         const char* device_name = device_element->FirstChild()->Value();
         std::string_view device_define { getDeviceName(device_name) };
-        tokenized_defines.push_back(device_define.data());
+        if (device_define.size() != 0) {
+            tokenized_defines.push_back(device_define.data());
+        }
     }
 
     std::ranges::for_each(tokenized_defines, [](std::string& s) {
