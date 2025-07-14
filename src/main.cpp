@@ -240,7 +240,7 @@ int main(int argc, char* argv[]) {
     std::ofstream o(compile_commands_path_str);
     o << std::setw(4) << j << std::endl;
 
-    fmt::print("The compile_commands.json file has been created in: {}", fs::absolute(compile_commands_path_str).string());
+    fmt::print("The compile_commands.json file has been created in: {}\n", fs::absolute(compile_commands_path_str).string());
     o.close();
 }
 
